@@ -12,6 +12,7 @@ const child_process_1 = __importDefault(require("child_process"));
 const util_1 = __importDefault(require("util"));
 const sync_1 = __importDefault(require("csv-parse/lib/sync"));
 const camelcase_keys_1 = __importDefault(require("camelcase-keys"));
+const ioredis_1 = __importDefault(require("ioredis"));
 // require('newrelic');
 const upload = multer_1.default();
 const promisify = util_1.default.promisify;
@@ -29,6 +30,9 @@ const dbinfo = {
     database: process.env.MYSQL_DBNAME ?? "isuumo",
     connectionLimit: 10,
 };
+const redis = new ioredis_1.default(6379, '10.164.72.101');
+const ESTATE_LOW_PRICE_CACHE = 'ESTATE_LOW_PRICE_CACHE';
+const CHAIR_LOW_PRICE_CACHE = 'CHAIR_LOW_PRICE_CACHE';
 const app = express_1.default();
 const db = mysql_1.default.createPool(dbinfo);
 app.set("db", db);
@@ -57,6 +61,8 @@ app.use((req, res, next) => {
 });
 app.post("/initialize", async (req, res, next) => {
     try {
+        await redis.del(ESTATE_LOW_PRICE_CACHE);
+        await redis.del(CHAIR_LOW_PRICE_CACHE);
         const dbdir = path_1.default.resolve("..", "mysql", "db");
         const dbfiles = [
             "0_Schema.sql",
@@ -90,10 +96,11 @@ const estateQuery = `
   features,
   popularity
 `;
-let estateLowPriced;
 app.get("/api/estate/low_priced", async (req, res, next) => {
-    if (estateLowPriced) {
-        res.json({ estates: estateLowPriced });
+    const estatesCache = await redis.get(ESTATE_LOW_PRICE_CACHE);
+    console.log(estatesCache);
+    if (estatesCache) {
+        res.header('Content-Type', 'application/json; charset=utf-8').send(estatesCache);
         return;
     }
     const getConnection = promisify(db.getConnection.bind(db));
@@ -101,8 +108,10 @@ app.get("/api/estate/low_priced", async (req, res, next) => {
     const query = promisify(connection.query.bind(connection));
     try {
         const es = await query(`SELECT ${estateQuery} FROM estate ORDER BY rent ASC, id ASC LIMIT ?`, [LIMIT]);
-        estateLowPriced = es.map((estate) => camelcase_keys_1.default(estate));
-        res.json({ estates: estateLowPriced });
+        const estates = es.map((estate) => camelcase_keys_1.default(estate));
+        const json = JSON.stringify({ estates });
+        await redis.set(ESTATE_LOW_PRICE_CACHE, json);
+        res.header('Content-Type', 'application/json; charset=utf-8').send(json);
     }
     catch (e) {
         next(e);
@@ -111,10 +120,10 @@ app.get("/api/estate/low_priced", async (req, res, next) => {
         await connection.release();
     }
 });
-let chairLowPriced;
 app.get("/api/chair/low_priced", async (req, res, next) => {
-    if (chairLowPriced) {
-        res.json({ chairs: chairLowPriced });
+    const chairsCache = await redis.get(CHAIR_LOW_PRICE_CACHE);
+    if (chairsCache) {
+        res.header('Content-Type', 'application/json; charset=utf-8').send(chairsCache);
         return;
     }
     const getConnection = promisify(db.getConnection.bind(db));
@@ -122,8 +131,10 @@ app.get("/api/chair/low_priced", async (req, res, next) => {
     const query = promisify(connection.query.bind(connection));
     try {
         const cs = await query("SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?", [LIMIT]);
-        chairLowPriced = cs.map((chair) => camelcase_keys_1.default(chair));
-        res.json({ chairs: chairLowPriced });
+        const chairs = cs.map((chair) => camelcase_keys_1.default(chair));
+        const json = JSON.stringify({ chairs });
+        await redis.set(CHAIR_LOW_PRICE_CACHE, json);
+        res.header('Content-Type', 'application/json; charset=utf-8').send(json);
     }
     catch (e) {
         next(e);
@@ -297,7 +308,7 @@ app.post("/api/chair/buy/:id", async (req, res, next) => {
         ]);
         await commit();
         if (chair.stock === 1) {
-            chairLowPriced = undefined;
+            await redis.del(CHAIR_LOW_PRICE_CACHE);
         }
         res.json({ ok: true });
     }
@@ -529,7 +540,7 @@ app.post("/api/chair", upload.single("chairs"), async (req, res, next) => {
             await query("INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", items);
         }
         await commit();
-        chairLowPriced = undefined;
+        await redis.del(CHAIR_LOW_PRICE_CACHE);
         res.status(201);
         res.json({ ok: true });
     }
@@ -573,7 +584,7 @@ app.post("/api/estate", upload.single("estates"), async (req, res, next) => {
           )`, items);
         }
         await commit();
-        estateLowPriced = undefined;
+        await redis.del(ESTATE_LOW_PRICE_CACHE);
         res.status(201);
         res.json({ ok: true });
     }
