@@ -35,6 +35,26 @@ app.set("db", db);
 
 app.use(morgan("combined"));
 app.use(express.json());
+const botUA = [
+    /ISUCONbot(-Mobile)?/,
+    /ISUCONbot-Image\//,
+    /Mediapartners-ISUCON/,
+    /ISUCONCoffee/,
+    /ISUCONFeedSeeker(Beta)?/,
+    /crawler \(https:\/\/isucon\.invalid\/(support\/faq\/|help\/jp\/)/,
+    /isubot/,
+    /Isupider/,
+    /Isupider(-image)?\+/,
+    /(bot|crawler|spider)(?:[-_ .\/;@()]|$)/i,
+];
+app.use((req, res, next) => {
+    const ua = req.header('User-Agent')
+    if (ua && botUA.some(r => r.test(ua))) {
+        res.status(503).send()
+    } else {
+        next();
+    }
+})
 app.post("/initialize", async (req, res, next) => {
   try {
     const dbdir = path.resolve("..", "mysql", "db");
