@@ -624,13 +624,13 @@ app.get("/api/recommended_estate/:id", async (req, res, next) => {
   const connection = await getConnection();
   const query: MyQuery = promisify(connection.query.bind(connection));
   try {
+    // 一番長い辺と、二番目に長い辺がドアを通るか考えればいい
     const [chair] = await query("SELECT * FROM chair WHERE id = ?", [id]);
-    const w = chair.width;
-    const h = chair.height;
-    const d = chair.depth;
+    const [len1, len2] = [chair.width, chair.height, chair.depth].sort();
+
     const es = await query(
-      `SELECT ${estateQuery} FROM estate where (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) ORDER BY popularity DESC, id ASC LIMIT ?`,
-      [w, h, w, d, h, w, h, d, d, w, d, h, LIMIT]
+      `SELECT ${estateQuery} FROM estate where (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>= ?) ORDER BY popularity DESC, id ASC LIMIT ?`,
+      [len1, len2, len2, len1, LIMIT]
     );
     const estates = es.map((estate:any) => camelcaseKeys(estate));
     res.json({ estates });
