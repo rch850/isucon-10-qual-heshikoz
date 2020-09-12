@@ -21,6 +21,7 @@ CREATE TABLE isuumo.estate
     latlon geometry DEFAULT NULL,
     KEY index_rent (rent),
     KEY index_width_height (door_width, door_height),
+    KEY index_width_height_rent (door_width, door_height, rent),
     KEY index_height (door_height),
     KEY index_popularity (popularity)
 );
@@ -40,5 +41,6 @@ CREATE TABLE isuumo.chair
     kind        VARCHAR(64)     NOT NULL,
     popularity  INTEGER         NOT NULL,
     stock       INTEGER         NOT NULL,
+    KEY index_kind_stock_price (kind,stock,price)
     KEY index_stock_price (stock,price)
 );
