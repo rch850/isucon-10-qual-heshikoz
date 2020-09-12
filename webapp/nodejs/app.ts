@@ -481,7 +481,7 @@ app.get("/api/estate/search", async (req, res, next) => {
   const sqlprefix = `SELECT ${estateQuery} FROM estate WHERE `;
   const searchCondition = searchQueries.join(" AND ");
   const limitOffset = " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?";
-  const countprefix = "SELECT COUNT(*) as count FROM estate WHERE ";
+  const countprefix = "SELECT COUNT(id) as count FROM estate WHERE ";
 
   const getConnection = promisify(db.getConnection.bind(db));
   const connection = await getConnection();
