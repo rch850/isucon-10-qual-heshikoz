@@ -78,6 +78,21 @@ app.post("/initialize", async (req, res, next) => {
   }
 });
 
+const estateQuery = `
+  id,
+  name,
+  description,
+  thumbnail,
+  address,
+  latitude,
+  longitude,
+  rent,
+  door_height,
+  door_width,
+  features,
+  popularity
+`
+
 type MyQuery = (options: string | QueryOptions, values: any) => Promise<any>;
 
 let estateLowPriced: any[] | undefined;
@@ -93,7 +108,7 @@ app.get("/api/estate/low_priced", async (req, res, next) => {
   const query: MyQuery = promisify(connection.query.bind(connection));
   try {
     const es = await query(
-      "SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?",
+      `SELECT ${estateQuery} FROM estate ORDER BY rent ASC, id ASC LIMIT ?`,
       [LIMIT]
     );
     estateLowPriced = es.map((estate:any) => camelcaseKeys(estate));
@@ -463,7 +478,7 @@ app.get("/api/estate/search", async (req, res, next) => {
   const pageNum = parseInt(page, 10);
   const perPageNum = parseInt(perPage, 10);
 
-  const sqlprefix = "SELECT * FROM estate WHERE ";
+  const sqlprefix = `SELECT ${estateQuery} FROM estate WHERE `;
   const searchCondition = searchQueries.join(" AND ");
   const limitOffset = " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?";
   const countprefix = "SELECT COUNT(*) as count FROM estate WHERE ";
@@ -506,7 +521,7 @@ app.post("/api/estate/req_doc/:id", async (req, res, next) => {
   const query: MyQuery = promisify(connection.query.bind(connection));
   try {
     const id = req.params.id;
-    const [estate] = await query("SELECT * FROM estate WHERE id = ?", [id]);
+    const [estate] = await query(`SELECT ${estateQuery} FROM estate WHERE id = ?`, [id]);
     if (estate == null) {
       res.status(404).send("Not Found");
       return;
@@ -582,7 +597,7 @@ app.post("/api/estate/nazotte", async (req, res, next) => {
     );
 
     const estatesInPolygon = await query(
-      `SELECT * FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC`,
+      `SELECT ${estateQuery} FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC`,
       []
     );
 
@@ -613,7 +628,7 @@ app.get("/api/estate/:id", async (req, res, next) => {
   const query: MyQuery = promisify(connection.query.bind(connection));
   try {
     const id = req.params.id;
-    const [estate] = await query("SELECT * FROM estate WHERE id = ?", [id]);
+    const [estate] = await query(`SELECT ${estateQuery} FROM estate WHERE id = ?`, [id]);
     if (estate == null) {
       res.status(404).send("Not Found");
       return;
@@ -638,7 +653,7 @@ app.get("/api/recommended_estate/:id", async (req, res, next) => {
     const h = chair.height;
     const d = chair.depth;
     const es = await query(
-      "SELECT * FROM estate where (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) ORDER BY popularity DESC, id ASC LIMIT ?",
+      `SELECT ${estateQuery} FROM estate where (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>= ?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) OR (door_width >= ? AND door_height>=?) ORDER BY popularity DESC, id ASC LIMIT ?`,
       [w, h, w, d, h, w, h, d, d, w, d, h, LIMIT]
     );
     const estates = es.map((estate:any) => camelcaseKeys(estate));
