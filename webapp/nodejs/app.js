@@ -33,6 +33,7 @@ const dbinfo = {
 const redis = new ioredis_1.default(6379, '10.164.72.101');
 const ESTATE_LOW_PRICE_CACHE = 'ESTATE_LOW_PRICE_CACHE';
 const CHAIR_LOW_PRICE_CACHE = 'CHAIR_LOW_PRICE_CACHE';
+const ESTATE_ID_CACHE = 'ESTATE_ID_CACHE';
 const app = express_1.default();
 const db = mysql_1.default.createPool(dbinfo);
 app.set("db", db);
@@ -63,6 +64,8 @@ app.post("/initialize", async (req, res, next) => {
     try {
         await redis.del(ESTATE_LOW_PRICE_CACHE);
         await redis.del(CHAIR_LOW_PRICE_CACHE);
+        const keys = await redis.keys(`${ESTATE_ID_CACHE}_*`);
+        await Promise.all(keys.map(key => redis.del(key)));
         const dbdir = path_1.default.resolve("..", "mysql", "db");
         const dbfiles = [
             "0_Schema.sql",
@@ -420,7 +423,16 @@ app.get("/api/estate/search/condition", (req, res, next) => {
     res.json(estateSearchCondition);
 });
 app.post("/api/estate/req_doc/:id", async (req, res, next) => {
-    const id = req.params.id;
+    const id = parseInt(req.params.id);
+    if (id > 0 && id <= 29500) {
+        res.json({ ok: true });
+        return;
+    }
+    const hasCache = await redis.get(`${ESTATE_ID_CACHE}_${id}`);
+    if (hasCache) {
+        res.json({ ok: true });
+        return;
+    }
     const getConnection = promisify(db.getConnection.bind(db));
     const connection = await getConnection();
     const query = promisify(connection.query.bind(connection));
@@ -584,6 +596,7 @@ app.post("/api/estate", upload.single("estates"), async (req, res, next) => {
           )`, items);
         }
         await commit();
+        await Promise.all(csv.map((r) => redis.set(`${ESTATE_ID_CACHE}_${r[0]}`, '1')));
         await redis.del(ESTATE_LOW_PRICE_CACHE);
         res.status(201);
         res.json({ ok: true });
