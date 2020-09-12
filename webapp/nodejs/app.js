@@ -12,7 +12,7 @@ const child_process_1 = __importDefault(require("child_process"));
 const util_1 = __importDefault(require("util"));
 const sync_1 = __importDefault(require("csv-parse/lib/sync"));
 const camelcase_keys_1 = __importDefault(require("camelcase-keys"));
-require('newrelic');
+// require('newrelic');
 const upload = multer_1.default();
 const promisify = util_1.default.promisify;
 const exec = promisify(child_process_1.default.exec);

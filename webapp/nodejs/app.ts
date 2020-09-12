@@ -10,7 +10,7 @@ import util from "util";
 import os from "os";
 import parse from "csv-parse/lib/sync";
 import camelcaseKeys from "camelcase-keys";
-require('newrelic');
+// require('newrelic');
 const upload = multer();
 const promisify = util.promisify;
 const exec = promisify(cp.exec);
