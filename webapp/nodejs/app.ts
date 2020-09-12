@@ -553,40 +553,6 @@ app.post("/api/estate/nazotte", async (req, res, next) => {
   const connection = await getConnection();
   const query: MyQuery = promisify(connection.query.bind(connection));
   try {
-    // const estates = await query(
-    //   "SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC",
-    //   [
-    //     boundingbox.bottomright.latitude,
-    //     boundingbox.topleft.latitude,
-    //     boundingbox.bottomright.longitude,
-    //     boundingbox.topleft.longitude,
-    //   ]
-    // );
-
-    // const estatesInPolygon = [];
-    // for (const estate of estates) {
-    //   const point = util.format(
-    //     "'POINT(%f %f)'",
-    //     estate.latitude,
-    //     estate.longitude
-    //   );
-    //   const sql =
-    //     "SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))";
-    //   const coordinatesToText = util.format(
-    //     "'POLYGON((%s))'",
-    //     coordinates
-    //       .map((coordinate:any) =>
-    //         util.format("%f %f", coordinate.latitude, coordinate.longitude)
-    //       )
-    //       .join(",")
-    //   );
-    //   const sqlstr = util.format(sql, coordinatesToText, point);
-    //   const [e] = await query(sqlstr, [estate.id]);
-    //   if (e && Object.keys(e).length > 0) {
-    //     estatesInPolygon.push(e);
-    //   }
-    // }
-
     const coordinatesToText = util.format(
       "'POLYGON((%s))'",
       coordinates
