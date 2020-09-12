@@ -67,6 +67,8 @@ app.post("/initialize", async (req, res, next) => {
     await redis.del(CHAIR_LOW_PRICE_CACHE);
     const keys = await redis.keys(`${ESTATE_ID_CACHE}_*`)
     await Promise.all(keys.map(key=>redis.del(key)))
+    const keys2 = await redis.keys(`c_estate_*`)
+    await Promise.all(keys2.map(key=>redis.del(key)))
     const dbdir = path.resolve("..", "mysql", "db");
     const dbfiles = [
       "0_Schema.sql",
@@ -613,22 +615,35 @@ app.post("/api/estate/nazotte", async (req, res, next) => {
 });
 
 app.get("/api/estate/:id", async (req, res, next) => {
-  const getConnection = promisify(db.getConnection.bind(db));
-  const connection = await getConnection();
-  const query: MyQuery = promisify(connection.query.bind(connection));
+  let connection: mysql.PoolConnection | undefined = undefined;
   try {
     const id = req.params.id;
-    const [estate] = await query(`SELECT ${estateQuery} FROM estate WHERE id = ?`, [id]);
-    if (estate == null) {
-      res.status(404).send("Not Found");
+    const jsonc = await redis.get(`c_estate_${req.params.id}`)
+    if (jsonc) {
+      res.header('Content-Type', 'application/json; charset=utf-8').send(jsonc);
       return;
     }
 
-    res.json(camelcaseKeys(estate));
+    const getConnection = promisify(db.getConnection.bind(db));
+    connection = await getConnection();
+    const query: MyQuery = promisify(connection.query.bind(connection));
+    try {
+      const [estate] = await query(`SELECT ${estateQuery} FROM estate WHERE id = ?`, [id]);
+      if (estate == null) {
+        res.status(404).send("Not Found");
+        return;
+      }
+
+      const json = JSON.stringify(camelcaseKeys(estate));
+      await redis.set(`c_estate_${req.params.id}`, json)
+      res.header('Content-Type', 'application/json; charset=utf-8').send(json);
+    } catch (e) {
+      next(e);
+    } finally {
+      await connection?.release();
+    }
   } catch (e) {
     next(e);
-  } finally {
-    await connection.release();
   }
 });
 
