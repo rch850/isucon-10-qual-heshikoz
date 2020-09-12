@@ -41,6 +41,7 @@ app.post("/initialize", async (req, res, next) => {
             "0_Schema.sql",
             "1_DummyEstateData.sql",
             "2_DummyChairData.sql",
+            "3_LatLon.sql",
         ];
         const execfiles = dbfiles.map((file) => path_1.default.join(dbdir, file));
         for (const execfile of execfiles) {
@@ -392,25 +393,42 @@ app.post("/api/estate/nazotte", async (req, res, next) => {
     const connection = await getConnection();
     const query = promisify(connection.query.bind(connection));
     try {
-        const estates = await query("SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC", [
-            boundingbox.bottomright.latitude,
-            boundingbox.topleft.latitude,
-            boundingbox.bottomright.longitude,
-            boundingbox.topleft.longitude,
-        ]);
-        const estatesInPolygon = [];
-        for (const estate of estates) {
-            const point = util_1.default.format("'POINT(%f %f)'", estate.latitude, estate.longitude);
-            const sql = "SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))";
-            const coordinatesToText = util_1.default.format("'POLYGON((%s))'", coordinates
-                .map((coordinate) => util_1.default.format("%f %f", coordinate.latitude, coordinate.longitude))
-                .join(","));
-            const sqlstr = util_1.default.format(sql, coordinatesToText, point);
-            const [e] = await query(sqlstr, [estate.id]);
-            if (e && Object.keys(e).length > 0) {
-                estatesInPolygon.push(e);
-            }
-        }
+        // const estates = await query(
+        //   "SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC",
+        //   [
+        //     boundingbox.bottomright.latitude,
+        //     boundingbox.topleft.latitude,
+        //     boundingbox.bottomright.longitude,
+        //     boundingbox.topleft.longitude,
+        //   ]
+        // );
+        // const estatesInPolygon = [];
+        // for (const estate of estates) {
+        //   const point = util.format(
+        //     "'POINT(%f %f)'",
+        //     estate.latitude,
+        //     estate.longitude
+        //   );
+        //   const sql =
+        //     "SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))";
+        //   const coordinatesToText = util.format(
+        //     "'POLYGON((%s))'",
+        //     coordinates
+        //       .map((coordinate:any) =>
+        //         util.format("%f %f", coordinate.latitude, coordinate.longitude)
+        //       )
+        //       .join(",")
+        //   );
+        //   const sqlstr = util.format(sql, coordinatesToText, point);
+        //   const [e] = await query(sqlstr, [estate.id]);
+        //   if (e && Object.keys(e).length > 0) {
+        //     estatesInPolygon.push(e);
+        //   }
+        // }
+        const coordinatesToText = util_1.default.format("'POLYGON((%s))'", coordinates
+            .map((coordinate) => util_1.default.format("%f %f", coordinate.latitude, coordinate.longitude))
+            .join(","));
+        const estatesInPolygon = await query(`SELECT * FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC`, []);
         const results = {
             estates: [],
             count: 0,
@@ -512,7 +530,24 @@ app.post("/api/estate", upload.single("estates"), async (req, res, next) => {
         const csv = sync_1.default(req.file.buffer, { skip_empty_lines: true });
         for (var i = 0; i < csv.length; i++) {
             const items = csv[i];
-            await query("INSERT INTO estate(id, name, description, thumbnail, address, latitude, longitude, rent, door_height, door_width, features, popularity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", items);
+            const latlon = `ST_GeomFromText('POINT(${items[5]} ${items[6]})')`;
+            await query(`INSERT INTO estate(
+            id,
+            name,
+            description,
+            thumbnail,
+            address,
+            latitude,
+            longitude,
+            rent,
+            door_height,
+            door_width,
+            features,
+            popularity,
+            latlon
+          ) VALUES (
+            ?,?,?,?,?,?,?,?,?,?,?,?,${latlon}
+          )`, items);
         }
         await commit();
         res.status(201);

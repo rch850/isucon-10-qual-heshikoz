@@ -18,6 +18,7 @@ CREATE TABLE isuumo.estate
     door_width  INTEGER             NOT NULL,
     features    VARCHAR(64)         NOT NULL,
     popularity  INTEGER             NOT NULL,
+    latlon geometry DEFAULT NULL,
     KEY index_rent (rent)
 );
 
