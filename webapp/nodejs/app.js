@@ -76,14 +76,19 @@ app.post("/initialize", async (req, res, next) => {
         next(e);
     }
 });
+let estateLowPriced;
 app.get("/api/estate/low_priced", async (req, res, next) => {
+    if (estateLowPriced) {
+        res.json({ estates: estateLowPriced });
+        return;
+    }
     const getConnection = promisify(db.getConnection.bind(db));
     const connection = await getConnection();
     const query = promisify(connection.query.bind(connection));
     try {
         const es = await query("SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?", [LIMIT]);
-        const estates = es.map((estate) => camelcase_keys_1.default(estate));
-        res.json({ estates });
+        estateLowPriced = es.map((estate) => camelcase_keys_1.default(estate));
+        res.json({ estates: estateLowPriced });
     }
     catch (e) {
         next(e);
@@ -92,14 +97,19 @@ app.get("/api/estate/low_priced", async (req, res, next) => {
         await connection.release();
     }
 });
+let chairLowPriced;
 app.get("/api/chair/low_priced", async (req, res, next) => {
+    if (chairLowPriced) {
+        res.json({ chairs: chairLowPriced });
+        return;
+    }
     const getConnection = promisify(db.getConnection.bind(db));
     const connection = await getConnection();
     const query = promisify(connection.query.bind(connection));
     try {
         const cs = await query("SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?", [LIMIT]);
-        const chairs = cs.map((chair) => camelcase_keys_1.default(chair));
-        res.json({ chairs });
+        chairLowPriced = cs.map((chair) => camelcase_keys_1.default(chair));
+        res.json({ chairs: chairLowPriced });
     }
     catch (e) {
         next(e);
@@ -272,6 +282,9 @@ app.post("/api/chair/buy/:id", async (req, res, next) => {
             id,
         ]);
         await commit();
+        if (chair.stock === 1) {
+            chairLowPriced = undefined;
+        }
         res.json({ ok: true });
     }
     catch (e) {
@@ -534,6 +547,7 @@ app.post("/api/chair", upload.single("chairs"), async (req, res, next) => {
             await query("INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", items);
         }
         await commit();
+        chairLowPriced = undefined;
         res.status(201);
         res.json({ ok: true });
     }
@@ -577,6 +591,7 @@ app.post("/api/estate", upload.single("estates"), async (req, res, next) => {
           )`, items);
         }
         await commit();
+        estateLowPriced = undefined;
         res.status(201);
         res.json({ ok: true });
     }

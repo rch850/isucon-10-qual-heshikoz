@@ -80,7 +80,14 @@ app.post("/initialize", async (req, res, next) => {
 
 type MyQuery = (options: string | QueryOptions, values: any) => Promise<any>;
 
+let estateLowPriced: any[] | undefined;
+
 app.get("/api/estate/low_priced", async (req, res, next) => {
+  if (estateLowPriced) {
+    res.json({ estates: estateLowPriced });
+    return;
+  }
+
   const getConnection = promisify(db.getConnection.bind(db));
   const connection = await getConnection();
   const query: MyQuery = promisify(connection.query.bind(connection));
@@ -89,8 +96,8 @@ app.get("/api/estate/low_priced", async (req, res, next) => {
       "SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?",
       [LIMIT]
     );
-    const estates = es.map((estate:any) => camelcaseKeys(estate));
-    res.json({ estates });
+    estateLowPriced = es.map((estate:any) => camelcaseKeys(estate));
+    res.json({ estates: estateLowPriced });
   } catch (e) {
     next(e);
   } finally {
@@ -98,7 +105,14 @@ app.get("/api/estate/low_priced", async (req, res, next) => {
   }
 });
 
+let chairLowPriced: any[] | undefined
+
 app.get("/api/chair/low_priced", async (req, res, next) => {
+  if (chairLowPriced) {
+    res.json({ chairs: chairLowPriced });
+    return;
+  }
+
   const getConnection = promisify(db.getConnection.bind(db));
   const connection = await getConnection();
   const query: MyQuery = promisify(connection.query.bind(connection));
@@ -107,8 +121,8 @@ app.get("/api/chair/low_priced", async (req, res, next) => {
       "SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?",
       [LIMIT]
     );
-    const chairs = cs.map((chair:any) => camelcaseKeys(chair));
-    res.json({ chairs });
+    chairLowPriced = cs.map((chair:any) => camelcaseKeys(chair));
+    res.json({ chairs: chairLowPriced });
   } catch (e) {
     next(e);
   } finally {
@@ -334,6 +348,9 @@ app.post("/api/chair/buy/:id", async (req, res, next) => {
       id,
     ]);
     await commit();
+    if (chair.stock === 1) {
+      chairLowPriced = undefined;
+    }
     res.json({ ok: true });
   } catch (e) {
     await rollback();
@@ -651,6 +668,7 @@ app.post("/api/chair", upload.single("chairs"), async (req, res, next) => {
       );
     }
     await commit();
+    chairLowPriced = undefined
     res.status(201);
     res.json({ ok: true });
   } catch (e) {
@@ -696,6 +714,7 @@ app.post("/api/estate", upload.single("estates"), async (req, res, next) => {
       );
     }
     await commit();
+    estateLowPriced = undefined;
     res.status(201);
     res.json({ ok: true });
   } catch (e) {
