@@ -589,7 +589,7 @@ app.post("/api/estate/nazotte", async (req, res, next) => {
     );
 
     const estatesInPolygon = await query(
-      `SELECT ${estateQuery} FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC`,
+      `SELECT ${estateQuery} FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC limit ${NAZOTTE_LIMIT}`,
       []
     );
 

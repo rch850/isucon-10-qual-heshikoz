@@ -475,7 +475,7 @@ app.post("/api/estate/nazotte", async (req, res, next) => {
         const coordinatesToText = util_1.default.format("'POLYGON((%s))'", coordinates
             .map((coordinate) => util_1.default.format("%f %f", coordinate.latitude, coordinate.longitude))
             .join(","));
-        const estatesInPolygon = await query(`SELECT ${estateQuery} FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC`, []);
+        const estatesInPolygon = await query(`SELECT ${estateQuery} FROM estate WHERE ST_Contains(ST_GeomFromText(${coordinatesToText}), latlon) ORDER BY popularity DESC, id ASC limit ${NAZOTTE_LIMIT}`, []);
         const results = {
             estates: [],
             count: 0,
