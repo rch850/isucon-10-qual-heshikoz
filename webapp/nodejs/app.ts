@@ -521,7 +521,7 @@ app.post("/api/estate/req_doc/:id", async (req, res, next) => {
   const query: MyQuery = promisify(connection.query.bind(connection));
   try {
     const id = req.params.id;
-    const [estate] = await query(`SELECT ${estateQuery} FROM estate WHERE id = ?`, [id]);
+    const [estate] = await query(`SELECT 1 FROM estate WHERE id = ?`, [id]);
     if (estate == null) {
       res.status(404).send("Not Found");
       return;
